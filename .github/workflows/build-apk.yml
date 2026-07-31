@@ -25,33 +25,30 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. Setup Android SDK
-        uses: actions/setup-android@v3
-
-      - name: 5. Install Node Dependencies
+      - name: 4. Install Node Dependencies
         run: npm ci || npm install
 
-      - name: 6. Generate Android Platform
+      - name: 5. Generate Android Platform
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
           npx cap sync android
 
-      - name: 7. Allow Cleartext HTTP Traffic in AndroidManifest.xml
+      - name: 6. Allow Cleartext HTTP Traffic in AndroidManifest.xml
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i 's/<application/<application android:usesCleartextTraffic="true"/g' $MANIFEST
           fi
 
-      - name: 8. Build Android APK (Debug)
+      - name: 7. Build Android APK (Debug)
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: 9. Upload Artifact APK Result
+      - name: 8. Upload Artifact APK Result
         uses: actions/upload-artifact@v4
         with:
           name: WemosMonitor-Debug-APK
