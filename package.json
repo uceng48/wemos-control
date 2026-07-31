@@ -1,0 +1,17 @@
+{
+  "name": "wemos-monitor-app",
+  "version": "1.0.0",
+  "description": "Wemos D1 IoT Monitor and Alarm App",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'No web build step required'",
+    "cap:sync": "npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "author": "Wemos Control System",
+  "license": "ISC"
+}
