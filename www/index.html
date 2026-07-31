@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: gap:; connect-src *; style-src 'unsafe-inline'; script-src 'unsafe-inline' 'unsafe-eval';"> 
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0b1a">
+
+  <script src="capacitor.js" onerror="console.log('Capacitor fallback mode')"></script>
+
+  <title>Wemos D1 · Monitor & Alarm</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg-primary: #0d0b1a;
+      --bg-secondary: rgba(20,18,40,0.85);
+      --glass-bg: rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.08);
+      --glass-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      --text-primary: #f0edff;
+      --text-secondary: #b8b0d6;
+      --text-dim: #6a6090;
+      --gradient-1: linear-gradient(135deg, #7c3aed, #4f46e5);
+      --gradient-2: linear-gradient(135deg, #ec4899, #8b5cf6);
+      --gradient-3: linear-gradient(135deg, #06b6d4, #3b82f6);
+      --gradient-4: linear-gradient(135deg, #f59e0b, #ef4444);
+      --gradient-5: linear-gradient(135deg, #10b981, #34d399);
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ec4899;
+      --accent-cyan: #06b6d4;
+      --accent-blue: #4f46e5;
+      --accent-green: #34d399;
+      --accent-red: #f87171;
+      --accent-orange: #fbbf24;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+      --radius-full: 9999px;
+      --font: 'Inter', -apple-system, system-ui, 'Segoe UI', sans-serif;
+      --transition: 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      --blur: blur(24px);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    html, body {
+      height:100%; width:100%; background:var(--bg-primary); color:var(--text-primary);
+      font-family:var(--font); touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+      overflow:hidden; position:fixed; inset:0; margin:0; padding:0;
+    }
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--accent-purple); border-radius:4px; }
+
+    #app {
+      display:flex; flex-direction:column; height:100%; width:100%; max-width:480px;
+      margin:0 auto; background:var(--bg-primary); position:relative; overflow:hidden;
+      box-shadow:0 0 120px rgba(124,58,237,0.06);
+      padding-top:var(--safe-top); padding-bottom:var(--safe-bottom);
+    }
+    @media (min-width:481px) {
+      #app { border-left:1px solid var(--glass-border); border-right:1px solid var(--glass-border);
+        border-radius:28px; margin-top:12px; height:calc(100vh - 24px); max-height:calc(100vh - 24px);
+        box-shadow:0 40px 80px rgba(0,0,0,0.7); }
+    }
+
+    .app-header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px 8px;
+      background:rgba(13,11,26,0.7); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+      border-bottom:1px solid var(--glass-border); flex-shrink:0; z-index:20; position:relative;
+      min-height:56px; padding-top:calc(8px + var(--safe-top)); }
+    .app-header::after { content:''; position:absolute; bottom:-1px; left:20%; right:20%; height:1px;
+      background:linear-gradient(90deg, transparent, rgba(139,92,246,0.3), transparent); }
+    .app-header .brand { display:flex; align-items:center; gap:10px; }
+    .app-header .brand .logo { width:36px; height:36px; background:var(--gradient-2); border-radius:var(--radius-sm);
+      display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:#fff;
+      box-shadow:0 8px 24px rgba(124,58,237,0.3); flex-shrink:0; }
+    .app-header .brand h1 { font-size:0.9rem; font-weight:700; letter-spacing:-0.3px;
+      background:var(--gradient-2); -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text; white-space:nowrap; }
+    .app-header .brand h1 span { font-weight:300; opacity:0.5; -webkit-text-fill-color:var(--text-secondary); }
+    .header-actions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+    .header-actions .icon-btn { background:var(--glass-bg); border:1px solid var(--glass-border);
+      color:var(--text-secondary); font-size:0.85rem; cursor:pointer; padding:5px 8px;
+      border-radius:var(--radius-full); transition:var(--transition); touch-action:manipulation;
+      backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); min-width:32px; text-align:center;
+      line-height:1.2; }
+    .header-actions .icon-btn:active { transform:scale(0.92); }
+    .status-badge { display:flex; align-items:center; gap:4px; font-size:0.5rem; font-weight:600;
+      padding:3px 10px 3px 6px; border-radius:var(--radius-full); background:var(--glass-bg);
+      border:1px solid var(--glass-border); color:var(--text-secondary); backdrop-filter:var(--blur);
+      -webkit-backdrop-filter:var(--blur); text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+    .status-badge .dot { width:7px; height:7px; border-radius:50%; display:inline-block; transition:var(--transition);
+      flex-shrink:0; }
+    .status-badge .dot.on { background:var(--accent-green); box-shadow:0 0 20px rgba(52,211,153,0.4);
+      animation:pulse-dot 1.8s infinite; }
+    .status-badge .dot.off { background:var(--accent-red); box-shadow:0 0 20px rgba(248,113,113,0.2); }
+    @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.3;transform:scale(0.7);} }
+
+    .main-content { flex:1; overflow-y:auto; overflow-x:hidden; padding:12px 14px 8px; scroll-behavior:smooth;
+      -webkit-overflow-scrolling:touch; padding-bottom:calc(70px + var(--safe-bottom)); }
+
+    .tab-nav { display:flex; background:rgba(13,11,26,0.92); backdrop-filter:var(--blur);
+      -webkit-backdrop-filter:var(--blur); border-top:1px solid var(--glass-border); flex-shrink:0;
+      z-index:20; position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto;
+      padding:4px 8px calc(4px + var(--safe-bottom)); gap:2px; box-shadow:0 -4px 30px rgba(0,0,0,0.4); }
+    .tab-nav .tab { flex:1; text-align:center; padding:6px 0 4px; font-size:0.45rem; font-weight:600;
+      color:var(--text-dim); cursor:pointer; transition:var(--transition); border:none; background:transparent;
+      border-radius:var(--radius-full); display:flex; flex-direction:column; align-items:center; gap:1px;
+      touch-action:manipulation; position:relative; min-height:44px; justify-content:center; }
+    .tab-nav .tab .icon { font-size:1.1rem; line-height:1; transition:var(--transition); }
+    .tab-nav .tab .label { font-size:0.45rem; opacity:0.7; letter-spacing:0.3px; line-height:1.2; }
+    .tab-nav .tab.active { color:#fff; background:rgba(139,92,246,0.2); box-shadow:inset 0 0 0 1px rgba(139,92,246,0.2); }
+
+    .panel { display:none; animation:fadeUp 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    .panel.active { display:block; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px) scale(0.98);} to{opacity:1;transform:translateY(0) scale(1);} }
+
+    .card { background:var(--glass-bg); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+      border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:12px; border:1px solid var(--glass-border);
+      box-shadow:var(--glass-shadow); transition:var(--transition); position:relative; }
+    .card .card-title { font-size:0.55rem; text-transform:uppercase; letter-spacing:1.5px; color:var(--text-secondary);
+      margin-bottom:12px; display:flex; align-items:center; gap:8px; font-weight:600; flex-wrap:wrap; }
+
+    .stats-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; }
+    .stat-item { background:rgba(255,255,255,0.03); border-radius:var(--radius-md); padding:10px 6px; text-align:center;
+      border:1px solid var(--glass-border); transition:var(--transition); }
+    .stat-item .stat-icon { font-size:1rem; display:block; margin-bottom:1px; }
+    .stat-item .stat-value { font-size:1.2rem; font-weight:800; line-height:1.2;
+      background:var(--gradient-2); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .stat-item .stat-label { font-size:0.45rem; color:var(--text-secondary); margin-top:2px; text-transform:uppercase; letter-spacing:0.6px; font-weight:500; }
+    .stat-item .stat-value.danger { background:var(--gradient-4); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .stat-item .stat-value.green { background:var(--gradient-5); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .stat-item .stat-value.purple { background:var(--gradient-1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    .indicator-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr; gap:8px; margin-top:6px; }
+    .indicator-item { display:flex; flex-direction:column; align-items:center; gap:4px; background:rgba(255,255,255,0.02);
+      border-radius:var(--radius-sm); padding:6px 2px; border:1px solid var(--glass-border); }
+    .indicator-item .led-bulb { width:24px; height:24px; border-radius:50%; transition:var(--transition);
+      box-shadow:0 0 8px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center;
+      font-size:0.4rem; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.5); }
+    .indicator-item .led-bulb.on { background:var(--accent-green); box-shadow:0 0 20px rgba(52,211,153,0.8); }
+    .indicator-item .led-bulb.off { background:#333; box-shadow:none; opacity:0.6; }
+    .indicator-item .led-bulb.alarm { background:var(--accent-red); box-shadow:0 0 30px rgba(248,113,113,0.9); animation:pulse-dot 0.6s infinite; }
+    .indicator-item .led-bulb.trigger { background:var(--accent-orange); box-shadow:0 0 30px rgba(251,191,36,0.8); animation:pulse-dot 0.4s infinite; }
+    .indicator-item .led-bulb.search { background:var(--accent-cyan); box-shadow:0 0 20px rgba(6,182,212,0.6); animation:pulse-dot 0.5s infinite; }
+    .indicator-item .led-bulb.connected { background:var(--accent-green); box-shadow:0 0 20px rgba(52,211,153,0.6); }
+    .indicator-item .led-label { font-size:0.45rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.4px; font-weight:600; }
+    .indicator-item .led-status { font-size:0.4rem; font-weight:700; }
+    .indicator-item .led-status.on { color:var(--accent-green); }
+    .indicator-item .led-status.off { color:#666; }
+    .indicator-item .led-status.alarm { color:var(--accent-red); }
+    .indicator-item .led-status.trigger { color:var(--accent-orange); }
+    .indicator-item .led-status.search { color:var(--accent-cyan); }
+
+    .btn-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:10px; }
+    .btn { padding:12px 4px; border:none; border-radius:var(--radius-md); font-size:0.6rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:0.6px; cursor:pointer; transition:all 0.15s ease-out;
+      user-select:none; -webkit-user-select:none; touch-action:none; color:#fff; position:relative; overflow:visible;
+      box-shadow:0 8px 24px rgba(0,0,0,0.3); min-height:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .btn .key-hint { display:block; font-size:0.35rem; opacity:0.5; font-weight:400; margin-top:1px; letter-spacing:0.5px; }
+    .btn-menu { background:var(--gradient-4); }
+    .btn-up { background:var(--gradient-3); }
+    .btn-down { background:var(--gradient-5); }
+    .btn-sel { background:var(--gradient-1); }
+    .btn.btn-pressed, .btn:active {
+      transform: scale(0.92) !important;
+      filter: brightness(1.5) contrast(1.2) !important;
+      box-shadow: 0 0 25px rgba(255, 255, 255, 0.8), inset 0 0 12px rgba(255, 255, 255, 0.5) !important;
+      border: 2px solid #ffffff !important;
+    }
+
+    .note-anim {
+      position: absolute;
+      pointer-events: none;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #38bdf8;
+      text-shadow: 0 0 10px #38bdf8, 0 0 20px #818cf8;
+      z-index: 999;
+      animation: floatUpNote 0.8s ease-out forwards;
+    }
+
+    @keyframes floatUpNote {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(0.6) rotate(0deg); }
+      50% { opacity: 0.9; transform: translate(-50%, -100%) scale(1.4) rotate(-15deg); }
+      100% { opacity: 0; transform: translate(-50%, -160%) scale(1.8) rotate(20deg); }
+    }
+
+    .setting-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.04); gap:8px; flex-wrap:wrap; }
+    .setting-row label { font-size:0.6rem; color:var(--text-secondary); font-weight:500; flex-shrink:0; }
+    .setting-row input[type="text"], .setting-row input[type="number"], .setting-row input[type="password"],
+    .setting-row select {
+      background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); color:var(--text-primary);
+      padding:5px 12px; border-radius:var(--radius-sm); width:140px; font-size:0.6rem; transition:var(--transition);
+      font-family:var(--font); min-height:34px; }
+    .setting-row input:focus, .setting-row select:focus { border-color:var(--accent-purple); outline:none; }
+
+    .toggle-switch { width:40px; height:22px; background:rgba(255,255,255,0.06); border-radius:12px; position:relative; cursor:pointer; transition:var(--transition); border:1px solid var(--glass-border); flex-shrink:0; }
+    .toggle-switch .thumb { width:16px; height:16px; background:var(--text-dim); border-radius:50%; position:absolute; top:2px; left:2px; transition:var(--transition); }
+    .toggle-switch.active { background:rgba(139,92,246,0.3); border-color:var(--accent-purple); }
+    .toggle-switch.active .thumb { left:20px; background:var(--gradient-2); }
+
+    .btn-save-wifi { background:var(--gradient-3); width:100%; margin-top:8px; padding:10px; border-radius:var(--radius-sm); border:none; color:#fff; font-weight:700; font-size:0.65rem; cursor:pointer; text-transform:uppercase; }
+    .btn-save-wifi:active { transform:scale(0.96); }
+
+    .alarm-toast { position:fixed; top:0; left:0; right:0; background:var(--gradient-4); color:#fff; text-align:center;
+      padding:14px 16px; font-weight:700; font-size:0.8rem; z-index:9999; transform:translateY(-100%);
+      transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1); display:flex; align-items:center; justify-content:center;
+      gap:8px; flex-wrap:wrap; box-shadow:0 8px 40px rgba(239,68,68,0.3); padding-top:calc(14px + var(--safe-top)); }
+    .alarm-toast.show { transform:translateY(0); }
+    .alarm-toast button { background:rgba(255,255,255,0.2); border:none; color:#fff; padding:6px 14px; border-radius:var(--radius-full); font-size:0.55rem; font-weight:800; cursor:pointer; letter-spacing:0.5px; }
+    .alarm-toast button:active { transform:scale(0.92); }
+    
+    .unblock-btn { background:#fbbf24 !important; color:#000 !important; font-weight:900 !important; animation:pulse-dot 0.6s infinite; }
+
+    .alarm-flash { position:fixed; inset:0; background:rgba(239,68,68,0); pointer-events:none; z-index:9998; }
+    .alarm-flash.active { animation:flashRed 0.5s infinite alternate; }
+    @keyframes flashRed { 0%{background:rgba(239,68,68,0);} 100%{background:rgba(239,68,68,0.25);} }
+
+    .info-row { display:flex; justify-content:space-between; font-size:0.55rem; padding:4px 0; color:var(--text-secondary); border-bottom:1px solid rgba(255,255,255,0.03); }
+    .info-row .info-label { opacity:0.6; }
+    .info-row .info-value { font-weight:600; color:var(--text-primary); }
+    .info-row .info-value.connected { color:var(--accent-green); }
+    .info-row .info-value.disconnected { color:var(--accent-red); }
+  </style>
+</head>
+<body>
+
+  <div class="alarm-flash" id="alarmFlash"></div>
+  <div class="alarm-toast" id="alarmToast">
+    <span>🚨 ALARM SENSOR D5 AKTIF!</span>
+    <button id="unblockAudioBtn" class="unblock-btn" style="display:none;">🔊 TAMPILKAN SUARA</button>
+    <button id="btnDismissAlarm">RESET ALARM ✕</button>
+  </div>
+
+  <div id="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo">⌚</div>
+        <h1>Wemos <span>Monitor</span></h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="refreshBtn" title="Refresh">🔄</button>
+        <button class="icon-btn" id="themeToggle" title="Toggle Theme">🌓</button>
+        <div class="status-badge" id="statusBadge">
+          <span class="dot off" id="statusDot"></span>
+          <span id="statusText">OFFLINE</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-content" id="mainContent">
+      <div class="panel active" id="panelDashboard">
+        <div class="card">
+          <div class="card-title">📊 Dashboard Status</div>
+          <div class="stats-grid">
+            <div class="stat-item"><span class="stat-icon">⚡</span><div class="stat-value" id="statTriggers">0</div><div class="stat-label">Trigger</div></div>
+            <div class="stat-item"><span class="stat-icon">🔔</span><div class="stat-value" id="statAlarms">0</div><div class="stat-label">Alarm</div></div>
+            <div class="stat-item"><span class="stat-icon">📡</span><div class="stat-value green" id="statClients">0</div><div class="stat-label">Client</div></div>
+            <div class="stat-item"><span class="stat-icon">⏱️</span><div class="stat-value purple" id="statUptime">0s</div><div class="stat-label">Uptime</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📶 Status Jaringan ESP32C3</div>
+          <div class="info-row"><span class="info-label">Mode WiFi</span><span class="info-value" id="infoWifiMode">-</span></div>
+          <div class="info-row"><span class="info-label">SSID STA</span><span class="info-value" id="infoStaSSID">-</span></div>
+          <div class="info-row"><span class="info-label">IP STA</span><span class="info-value" id="infoStaIP">-</span></div>
+          <div class="info-row"><span class="info-label">ESP32C3 Connected</span><span class="info-value disconnected" id="infoStaConnected">❌ Terputus</span></div>
+          <div class="info-row"><span class="info-label">Sensor Enabled</span><span class="info-value" id="infoSensorEnabled">✅</span></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🔴 Indikator Pin Wemos D1</div>
+          <div class="indicator-grid">
+            <div class="indicator-item"><div class="led-bulb off" id="indD0">D0</div><div class="led-label">D0</div><div class="led-status off" id="indD0Status">OFF</div></div>
+            <div class="indicator-item"><div class="led-bulb off" id="indD6">D6</div><div class="led-label">D6</div><div class="led-status off" id="indD6Status">OFF</div></div>
+            <div class="indicator-item"><div class="led-bulb off" id="indD8">D8</div><div class="led-label">D8</div><div class="led-status off" id="indD8Status">OFF</div></div>
+            <div class="indicator-item"><div class="led-bulb off" id="indD4">D4</div><div class="led-label">Trigger</div><div class="led-status off" id="indD4Status">NORMAL</div></div>
+            <div class="indicator-item"><div class="led-bulb off" id="indD5">D5</div><div class="led-label">Sensor (GND)</div><div class="led-status off" id="indD5Status">HIGH</div></div>
+            <div class="indicator-item"><div class="led-bulb off" id="indD2">D2</div><div class="led-label">Cari</div><div class="led-status off" id="indD2Status">IDLE</div></div>
+            <div class="indicator-item"><div class="led-bulb off" id="indD7">D7</div><div class="led-label">ESP Connected</div><div class="led-status off" id="indD7Status">OFF</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎮 Kontrol Manual</div>
+          <div class="btn-grid">
+            <button class="btn btn-menu" id="btnMenu">RESET <span class="key-hint">Q</span></button>
+            <button class="btn btn-up" id="btnUp">UP <span class="key-hint">W</span></button>
+            <button class="btn btn-down" id="btnDown">DOWN <span class="key-hint">S</span></button>
+            <button class="btn btn-sel" id="btnSelect">SEL <span class="key-hint">E</span></button>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.45rem;color:var(--text-secondary);margin-top:8px;gap:4px;flex-wrap:wrap;">
+            <span>RESET: Stop Alarm</span><span>UP: Toggle D8</span><span>DOWN: Toggle D0</span><span>SEL: Pulse D6</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panelPengaturan">
+        <div class="card">
+          <div class="card-title">⚙️ Pengaturan Wemos</div>
+          <div class="setting-row"><label>IP Wemos D1</label><input type="text" id="inpTargetIP" value="http://192.168.4.1"></div>
+          <div class="setting-row"><label>Poll Interval (ms)</label><input type="number" id="inpPollInt" value="1000" min="100" max="5000"></div>
+          <div class="setting-row"><label>Sensor Enabled</label><div class="toggle-switch active" id="sensorToggle"><div class="thumb"></div></div></div>
+          <div class="setting-row">
+            <label>Mode LED Cari (D2)</label>
+            <select id="selD2Mode">
+              <option value="1">Mode 1: Berkedip 5 Detik</option>
+              <option value="2" selected>Mode 2: ON Kontinu</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">📶 Konfigurasi WiFi / ESP32C3</div>
+          <div class="setting-row"><label>Mode WiFi</label><select id="wifiMode"><option value="0">AP Only</option><option value="1">STA Only</option><option value="2" selected>AP+STA</option></select></div>
+          <div class="setting-row"><label>SSID (STA/ESP32)</label><input type="text" id="wifiSSID" placeholder="Nama WiFi / ESP32C3"></div>
+          <div class="setting-row"><label>Password</label><input type="password" id="wifiPassword" placeholder="Password WiFi"></div>
+          <button class="btn-save-wifi" id="saveWifiBtn">💾 Simpan & Restart</button>
+        </div>
+      </div>
+    </div>
+
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab active" data-tab="panelDashboard"><span class="icon">📊</span><span class="label">Dashboard</span></button>
+      <button class="tab" data-tab="panelPengaturan"><span class="icon">⚙️</span><span class="label">Settings</span></button>
+    </nav>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      let targetIP = localStorage.getItem('sw_ip') || 'http://192.168.4.1';
+      let POLL_MS = parseInt(localStorage.getItem('sw_poll')) || 1000;
+      let sensorEnabled = true;
+
+      let id0State = false, id6State = false, id8State = false;
+      let d5SensorGrounded = false, d4AlarmActive = false;
+      let clientCount = 0, sensorTriggerCount = 0, prevSensorTriggerCount = 0;
+      let staConnected = false, prevStaConnected = false, staIP = '', staSSID = '', wifiMode = 2;
+
+      let startTime = Date.now();
+      let isPolling = true;
+      let pollInterval = null;
+
+      let offlineAttempts = 0;
+      const MAX_OFFLINE = 3;
+      
+      let isFirstPoll = true;
+      let alarmTriggered = false;
+
+      let audioCtx = null;
+      let sirenInterval = null;
+      let isAlarmSoundPlaying = false;
+
+      const alarmToast = document.getElementById('alarmToast');
+      const alarmFlash = document.getElementById('alarmFlash');
+      const unblockAudioBtn = document.getElementById('unblockAudioBtn');
+
+      const musicalNotes = ['🎵', '🎶', '🎼', '✨', '⚡'];
+
+      function unlockAudioContext() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        try {
+          const buffer = audioCtx.createBuffer(1, 1, 22050);
+          const source = audioCtx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(audioCtx.destination);
+          source.start(0);
+        } catch (e) {}
+      }
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      ['touchstart', 'touchend', 'click', 'pointerdown', 'keydown'].forEach(evt => {
+        document.addEventListener(evt, unlockAudioContext, { passive: true });
+      });
+
+      function playTone(freq, type = 'sine', duration = 0.15) {
+        try {
+          unlockAudioContext();
+          const ctx = getAudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          
+          osc.start();
+          osc.stop(ctx.currentTime + duration);
+        } catch (e) {
+          console.warn('Audio tone error:', e);
+        }
+      }
+
+      function createNoteAnimation(el) {
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const note = document.createElement('span');
+        note.className = 'note-anim';
+        note.textContent = musicalNotes[Math.floor(Math.random() * musicalNotes.length)];
+        
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        note.style.left = x + 'px';
+        note.style.top = y + 'px';
+
+        document.body.appendChild(note);
+
+        setTimeout(() => {
+          if (note && note.parentNode) note.parentNode.removeChild(note);
+        }, 800);
+      }
+
+      function handleButtonFeedback(btn, freq = 523.25) {
+        if (!btn) return;
+        btn.classList.add('btn-pressed');
+        setTimeout(() => btn.classList.remove('btn-pressed'), 200);
+        
+        playTone(freq, 'sine', 0.15);
+        createNoteAnimation(btn);
+      }
+
+      function startAlarmSound() {
+        if (isAlarmSoundPlaying) return;
+        
+        unlockAudioContext();
+        const ctx = getAudioContext();
+
+        if (ctx.state === 'suspended') {
+          unblockAudioBtn.style.display = 'inline-block';
+        } else {
+          unblockAudioBtn.style.display = 'none';
+        }
+
+        isAlarmSoundPlaying = true;
+        let highTone = false;
+
+        sirenInterval = setInterval(() => {
+          if (!isAlarmSoundPlaying) return;
+          try {
+            const currentCtx = getAudioContext();
+            if (currentCtx.state === 'suspended') {
+              currentCtx.resume();
+              unblockAudioBtn.style.display = 'inline-block';
+            } else {
+              unblockAudioBtn.style.display = 'none';
+            }
+
+            const osc = currentCtx.createOscillator();
+            const gain = currentCtx.createGain();
+
+            osc.type = 'sawtooth';
+            const freq = highTone ? 1300 : 750;
+            osc.frequency.setValueAtTime(freq, currentCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.6, currentCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, currentCtx.currentTime + 0.28);
+
+            osc.connect(gain);
+            gain.connect(currentCtx.destination);
+
+            osc.start();
+            osc.stop(currentCtx.currentTime + 0.28);
+
+            highTone = !highTone;
+          } catch (e) {
+            console.warn('Siren audio error:', e);
+          }
+        }, 300);
+      }
+
+      function stopAlarmSound() {
+        isAlarmSoundPlaying = false;
+        if (sirenInterval) {
+          clearInterval(sirenInterval);
+          sirenInterval = null;
+        }
+        unblockAudioBtn.style.display = 'none';
+      }
+
+      function activateAlarmUI() {
+        alarmTriggered = true;
+        startAlarmSound();
+        alarmToast.classList.add('show');
+        alarmFlash.classList.add('active');
+        document.getElementById('statAlarms').textContent = '1';
+        document.getElementById('statAlarms').className = 'stat-value danger';
+      }
+
+      function deactivateAlarmUIOnly() {
+        alarmTriggered = false;
+        stopAlarmSound();
+        alarmToast.classList.remove('show');
+        alarmFlash.classList.remove('active');
+        document.getElementById('statAlarms').textContent = '0';
+        document.getElementById('statAlarms').className = 'stat-value';
+      }
+
+      function resetAlarmApp() {
+        deactivateAlarmUIOnly();
+        sendCommand('/resetAlarm');
+      }
+
+      async function httpGet(endpoint, timeoutMs = 6000) {
+        const url = targetIP + endpoint;
+        try {
+          const ctrl = new AbortController();
+          const to = setTimeout(() => ctrl.abort(), timeoutMs);
+          const r = await fetch(url, {
+            method: 'GET',
+            signal: ctrl.signal,
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+          });
+          clearTimeout(to);
+          if (r.ok) {
+            const text = await r.text();
+            try { return { ok: true, payload: JSON.parse(text) }; }
+            catch (e) { return { ok: true, payload: null }; }
+          }
+          return { ok: false };
+        } catch (e) {
+          return { ok: false };
+        }
+      }
+
+      async function sendCommand(endpoint) {
+        await httpGet(endpoint, 2500);
+        setTimeout(pollStatus, 400);
+      }
+
+      function updateIndicator(pin, value, type) {
+        const map = {
+          'D0': { bulb: 'indD0', status: 'indD0Status' },
+          'D6': { bulb: 'indD6', status: 'indD6Status' },
+          'D8': { bulb: 'indD8', status: 'indD8Status' },
+          'D4': { bulb: 'indD4', status: 'indD4Status' },
+          'D5': { bulb: 'indD5', status: 'indD5Status' },
+          'D2': { bulb: 'indD2', status: 'indD2Status' },
+          'D7': { bulb: 'indD7', status: 'indD7Status' }
+        };
+        const entry = map[pin];
+        if (!entry) return;
+        const bulb = document.getElementById(entry.bulb);
+        const status = document.getElementById(entry.status);
+        if (!bulb) return;
+        
+        if (type === 'alarm') {
+          bulb.className = 'led-bulb ' + (value ? 'alarm' : 'off');
+          status.textContent = value ? 'TRIGGER' : 'NORMAL';
+          status.className = 'led-status ' + (value ? 'alarm' : 'off');
+        } else if (type === 'trigger') {
+          bulb.className = 'led-bulb ' + (value ? 'trigger' : 'off');
+          status.textContent = value ? 'GND (LOW)' : 'HIGH';
+          status.className = 'led-status ' + (value ? 'trigger' : 'off');
+        } else if (type === 'search') {
+          bulb.className = 'led-bulb ' + (value ? 'search' : 'off');
+          status.textContent = value ? 'CARI' : 'OFF';
+          status.className = 'led-status ' + (value ? 'search' : 'off');
+        } else if (type === 'connected') {
+          bulb.className = 'led-bulb ' + (value ? 'connected' : 'off');
+          status.textContent = value ? 'ON' : 'OFF';
+          status.className = 'led-status ' + (value ? 'on' : 'off');
+        } else {
+          bulb.className = 'led-bulb ' + (value ? 'on' : 'off');
+          status.textContent = value ? 'ON' : 'OFF';
+          status.className = 'led-status ' + (value ? 'on' : 'off');
+        }
+      }
+
+      function updateWifiInfo(payload) {
+        const modeMap = { 0: 'AP Only', 1: 'STA Only', 2: 'AP+STA' };
+        const mode = payload.wifiMode !== undefined ? payload.wifiMode : wifiMode;
+        document.getElementById('infoWifiMode').textContent = modeMap[mode] || 'Unknown';
+        document.getElementById('infoStaSSID').textContent = payload.staSSID || '-';
+        document.getElementById('infoStaIP').textContent = payload.staIP || '-';
+        
+        const connected = !!payload.staConnected || !!payload.espConnected || !!payload.esp32c3Connected;
+        const el = document.getElementById('infoStaConnected');
+        el.textContent = connected ? '✅ Terhubung ESP32C3' : '❌ Terputus';
+        el.className = 'info-value ' + (connected ? 'connected' : 'disconnected');
+        
+        const se = payload.sensorEnabled !== undefined ? !!payload.sensorEnabled : sensorEnabled;
+        document.getElementById('infoSensorEnabled').textContent = se ? '✅ Aktif' : '❌ Nonaktif';
+        const toggle = document.getElementById('sensorToggle');
+        if (se) toggle.classList.add('active'); else toggle.classList.remove('active');
+        sensorEnabled = se;
+
+        if (payload.d2Mode !== undefined) {
+          document.getElementById('selD2Mode').value = payload.d2Mode;
+        }
+      }
+
+      async function pollStatus() {
+        if (!isPolling) return;
+        const res = await httpGet('/status', 6000);
+
+        if (!res.ok) {
+          offlineAttempts++;
+          if (offlineAttempts >= MAX_OFFLINE) {
+            document.getElementById('statusDot').className = 'dot off';
+            document.getElementById('statusText').textContent = 'OFFLINE';
+            updateIndicator('D7', false, 'connected');
+            updateIndicator('D2', true, 'search');
+          }
+          return;
+        }
+
+        offlineAttempts = 0;
+        document.getElementById('statusDot').className = 'dot on';
+        document.getElementById('statusText').textContent = 'ONLINE';
+
+        if (res.payload) {
+          const p = res.payload;
+          id0State = !!p['0'];
+          id6State = !!p['6'];
+          id8State = !!p['8'];
+          
+          d5SensorGrounded = (p['5'] === 1 || p['5'] === true || p['5'] === '1');
+          d4AlarmActive = (p['4'] === 1 || p['4'] === true || p['4'] === '1');
+          const alarmFlagWemos = (p['alarm'] === 1 || p['alarm'] === true || p['alarm'] === '1');
+          const wemosHardwareResetBtnPressed = (p['reset'] === 1 || p['reset'] === true);
+
+          clientCount = parseInt(p['clients']) || 0;
+          sensorTriggerCount = parseInt(p['sensorEvent']) || 0;
+
+          let newTriggerOccurred = false;
+          if (isFirstPoll) {
+            prevSensorTriggerCount = sensorTriggerCount;
+            isFirstPoll = false;
+          } else {
+            if (sensorTriggerCount > prevSensorTriggerCount) {
+              newTriggerOccurred = true;
+              prevSensorTriggerCount = sensorTriggerCount;
+            }
+          }
+
+          staConnected = !!p['staConnected'] || !!p['espConnected'] || !!p['esp32c3Connected'];
+          staIP = p['staIP'] || '';
+          staSSID = p['staSSID'] || '';
+          wifiMode = p['wifiMode'] !== undefined ? p['wifiMode'] : 2;
+
+          const isConnectedESP32 = staConnected;
+          const isConnectedGeneral = isConnectedESP32 || clientCount > 0;
+
+          const newlyConnectedESP32 = (!prevStaConnected && isConnectedESP32);
+          prevStaConnected = isConnectedESP32;
+
+          document.getElementById('statTriggers').textContent = sensorTriggerCount;
+          document.getElementById('statClients').textContent = clientCount;
+          const uptime = Math.floor((Date.now() - startTime) / 1000);
+          document.getElementById('statUptime').textContent = uptime + 's';
+
+          updateWifiInfo(p);
+
+          updateIndicator('D0', id0State);
+          updateIndicator('D6', id6State);
+          updateIndicator('D8', id8State);
+          updateIndicator('D4', d4AlarmActive, 'alarm');
+          updateIndicator('D5', d5SensorGrounded, 'trigger');
+
+          updateIndicator('D2', !isConnectedGeneral, 'search');
+          updateIndicator('D7', isConnectedGeneral, 'connected');
+
+          if (alarmFlagWemos || d4AlarmActive || newTriggerOccurred) {
+            if (!alarmTriggered) {
+              activateAlarmUI();
+            }
+          } else {
+            if (alarmTriggered && (!alarmFlagWemos || wemosHardwareResetBtnPressed || newlyConnectedESP32)) {
+              deactivateAlarmUIOnly();
+            }
+          }
+        }
+      }
+
+      document.getElementById('selD2Mode').addEventListener('change', function() {
+        handleButtonFeedback(this, 500);
+        const m = this.value;
+        fetch(targetIP + '/d2mode?mode=' + m, { method: 'GET', cache: 'no-store' })
+          .catch(() => alert('Gagal mengirim mode D2.'));
+      });
+
+      document.getElementById('btnMenu').addEventListener('click', function() {
+        handleButtonFeedback(this, 440.00);
+        resetAlarmApp();
+      });
+      document.getElementById('btnUp').addEventListener('click', function() {
+        handleButtonFeedback(this, 587.33);
+        sendCommand('/toggle?id=8');
+      });
+      document.getElementById('btnDown').addEventListener('click', function() {
+        handleButtonFeedback(this, 349.23);
+        sendCommand('/toggle?id=0');
+      });
+      document.getElementById('btnSelect').addEventListener('click', function() {
+        handleButtonFeedback(this, 659.25);
+        sendCommand('/pulse?id=6');
+      });
+      
+      document.getElementById('btnDismissAlarm').addEventListener('click', function() {
+        handleButtonFeedback(this, 523.25);
+        resetAlarmApp();
+      });
+
+      unblockAudioBtn.addEventListener('click', function() {
+        unlockAudioContext();
+        if (isAlarmSoundPlaying) {
+          const ctx = getAudioContext();
+          ctx.resume();
+        } else {
+          startAlarmSound();
+        }
+        unblockAudioBtn.style.display = 'none';
+      });
+
+      document.getElementById('refreshBtn').addEventListener('click', function() {
+        handleButtonFeedback(this, 783.99);
+        pollStatus();
+      });
+
+      document.querySelectorAll('.tab').forEach((tab, index) => {
+        tab.addEventListener('click', function() {
+          handleButtonFeedback(this, 600 + (index * 150));
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+          document.getElementById(this.dataset.tab).classList.add('active');
+        });
+      });
+
+      const sensorToggle = document.getElementById('sensorToggle');
+      sensorToggle.addEventListener('click', function() {
+        handleButtonFeedback(this, 493.88);
+        const newState = !this.classList.contains('active');
+        const enableVal = newState ? '1' : '0';
+        fetch(targetIP + '/sensor?enable=' + enableVal, { method: 'GET', cache: 'no-store' })
+          .then(() => {
+            if (newState) this.classList.add('active'); else this.classList.remove('active');
+            sensorEnabled = newState;
+          })
+          .catch(() => {});
+      });
+
+      document.getElementById('saveWifiBtn').addEventListener('click', function() {
+        handleButtonFeedback(this, 880.00);
+        const mode = parseInt(document.getElementById('wifiMode').value);
+        const d2Mode = parseInt(document.getElementById('selD2Mode').value);
+        const ssid = document.getElementById('wifiSSID').value.trim();
+        const password = document.getElementById('wifiPassword').value.trim();
+        const payload = { mode, d2Mode, ssid, password };
+        fetch(targetIP + '/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data.status === 'restarting') alert('Konfigurasi disimpan! Wemos akan restart.');
+            else alert('Gagal menyimpan konfigurasi.');
+          })
+          .catch(() => alert('Gagal menghubungi Wemos D1.'));
+      });
+
+      document.getElementById('inpTargetIP').addEventListener('change', function() {
+        targetIP = this.value.trim();
+        localStorage.setItem('sw_ip', targetIP);
+      });
+      
+      document.getElementById('inpPollInt').addEventListener('change', function() {
+        let val = parseInt(this.value);
+        if (isNaN(val) || val < 100) val = 1000;
+        POLL_MS = val;
+        localStorage.setItem('sw_poll', String(POLL_MS));
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = setInterval(pollStatus, POLL_MS);
+        }
+      });
+
+      const KEY_MAP = { 'q': 'btnMenu', 'w': 'btnUp', 's': 'btnDown', 'e': 'btnSelect' };
+      window.addEventListener('keydown', function(e) {
+        if (e.repeat) return;
+        const k = e.key.toLowerCase();
+        if (KEY_MAP[k]) {
+          e.preventDefault();
+          document.getElementById(KEY_MAP[k]).click();
+        }
+      });
+
+      function init() {
+        document.getElementById('inpTargetIP').value = targetIP;
+        document.getElementById('inpPollInt').value = POLL_MS;
+        pollInterval = setInterval(pollStatus, POLL_MS);
+        pollStatus();
+      }
+
+      document.addEventListener('DOMContentLoaded', init);
+    })();
+  </script>
+</body>
+</html>
