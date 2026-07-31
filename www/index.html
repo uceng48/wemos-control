@@ -313,11 +313,19 @@
             </select>
           </div>
         </div>
+
+        <!-- PERBAIKAN FITUR: KONFIGURASI HOTSPOT WEMOS (AP) -->
         <div class="card">
-          <div class="card-title">📶 Konfigurasi WiFi / ESP32C3</div>
+          <div class="card-title">📡 Konfigurasi Hotspot Wemos (AP)</div>
+          <div class="setting-row"><label>SSID Hotspot Wemos</label><input type="text" id="wifiApSSID" placeholder="Nama Hotspot Wemos"></div>
+          <div class="setting-row"><label>Password Hotspot (min 8 char)</label><input type="password" id="wifiApPassword" placeholder="Password Hotspot"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📶 Konfigurasi WiFi STA (Router / ESP32C3)</div>
           <div class="setting-row"><label>Mode WiFi</label><select id="wifiMode"><option value="0">AP Only</option><option value="1">STA Only</option><option value="2" selected>AP+STA</option></select></div>
-          <div class="setting-row"><label>SSID (STA/ESP32)</label><input type="text" id="wifiSSID" placeholder="Nama WiFi / ESP32C3"></div>
-          <div class="setting-row"><label>Password</label><input type="password" id="wifiPassword" placeholder="Password WiFi"></div>
+          <div class="setting-row"><label>SSID STA (Router)</label><input type="text" id="wifiSSID" placeholder="Nama WiFi Router"></div>
+          <div class="setting-row"><label>Password STA</label><input type="password" id="wifiPassword" placeholder="Password WiFi"></div>
           <button class="btn-save-wifi" id="saveWifiBtn">💾 Simpan & Restart</button>
         </div>
       </div>
@@ -612,6 +620,14 @@
         if (payload.d2Mode !== undefined) {
           document.getElementById('selD2Mode').value = payload.d2Mode;
         }
+
+        // TAMPILKAN KONFIGURASI HOTSPOT AP DARI WEMOS
+        if (payload.apSSID !== undefined && document.activeElement !== document.getElementById('wifiApSSID')) {
+          document.getElementById('wifiApSSID').value = payload.apSSID;
+        }
+        if (payload.apPassword !== undefined && document.activeElement !== document.getElementById('wifiApPassword')) {
+          document.getElementById('wifiApPassword').value = payload.apPassword;
+        }
       }
 
       async function pollStatus() {
@@ -765,21 +781,33 @@
           .catch(() => {});
       });
 
+      // PERBAIKAN PEMANGGILAN SIMPAN KONFIGURASI WIFI (STA & AP)
       document.getElementById('saveWifiBtn').addEventListener('click', function() {
         handleButtonFeedback(this, 880.00);
         const mode = parseInt(document.getElementById('wifiMode').value);
         const d2Mode = parseInt(document.getElementById('selD2Mode').value);
+        
         const ssid = document.getElementById('wifiSSID').value.trim();
         const password = document.getElementById('wifiPassword').value.trim();
-        const payload = { mode, d2Mode, ssid, password };
+        
+        const apSSID = document.getElementById('wifiApSSID').value.trim();
+        const apPassword = document.getElementById('wifiApPassword').value.trim();
+
+        if (apPassword.length > 0 && apPassword.length < 8) {
+          alert('Password Hotspot Wemos (AP) minimal 8 karakter!');
+          return;
+        }
+
+        const payload = { mode, d2Mode, ssid, password, apSSID, apPassword };
+        
         fetch(targetIP + '/config', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify(payload)
         })
           .then(r => r.json())
           .then(data => {
-            if (data.status === 'restarting') alert('Konfigurasi disimpan! Wemos akan restart.');
+            if (data.status === 'restarting') alert('Konfigurasi disimpan! Wemos D1 akan restart.');
             else alert('Gagal menyimpan konfigurasi.');
           })
           .catch(() => alert('Gagal menghubungi Wemos D1.'));
