@@ -26,7 +26,7 @@ jobs:
           java-version: '17'
 
       - name: 4. Setup Android SDK
-        uses: actions/setup-android@v3
+        uses: android-actions/setup-android@v3
 
       - name: 5. Install Node Dependencies
         run: npm ci || npm install
@@ -38,7 +38,7 @@ jobs:
           fi
           npx cap sync android
 
-      - name: 7. Inject Android Manifest Permissions (Background Audio & Notification)
+      - name: 7. Inject Android Manifest Permissions
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
