@@ -314,7 +314,6 @@
           </div>
         </div>
 
-        <!-- PERBAIKAN FITUR: KONFIGURASI HOTSPOT WEMOS (AP) -->
         <div class="card">
           <div class="card-title">📡 Konfigurasi Hotspot Wemos (AP)</div>
           <div class="setting-row"><label>SSID Hotspot Wemos</label><input type="text" id="wifiApSSID" placeholder="Nama Hotspot Wemos"></div>
@@ -347,7 +346,8 @@
 
       let id0State = false, id6State = false, id8State = false;
       let d5SensorGrounded = false, d4AlarmActive = false;
-      let clientCount = 0, sensorTriggerCount = 0, prevSensorTriggerCount = 0;
+      let clientCount = 0, prevClientCount = 0;
+      let sensorTriggerCount = 0, prevSensorTriggerCount = 0;
       let staConnected = false, prevStaConnected = false, staIP = '', staSSID = '', wifiMode = 2;
 
       let startTime = Date.now();
@@ -369,6 +369,60 @@
       const unblockAudioBtn = document.getElementById('unblockAudioBtn');
 
       const musicalNotes = ['🎵', '🎶', '🎼', '✨', '⚡'];
+
+      // 1. FUNGSI MEMINTA SEMUA IZIN SAAT APLIKASI PERTAMA KALI DIBUKA
+      async function requestAllPermissionsOnStartup() {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+          try {
+            // Cek status izin saat ini
+            let perm = await window.Capacitor.Plugins.LocalNotifications.checkPermissions();
+            
+            // Jika belum diizinkan / masih default, munculkan dialog izin bawaan Android
+            if (perm.display !== 'granted') {
+              perm = await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
+            }
+
+            // Jika pengguna menolak izin notifikasi, beri tahu pentingnya izin ini
+            if (perm.display !== 'granted') {
+              alert("⚠️ Penting: Mohon izinkan notifikasi agar alarm tetap berbunyi saat layar HP mati / aplikasi di-minimize!");
+            }
+          } catch(e) {
+            console.warn('Gagal meminta izin otomatis:', e);
+          }
+        }
+      }
+      
+
+      // KIRIM NOTIFIKASI POPUP SMS / BANNER ANDROID
+      async function sendSMSNotification(title, body) {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+          try {
+            await window.Capacitor.Plugins.LocalNotifications.schedule({
+              notifications: [{
+                title: title,
+                body: body,
+                id: Math.floor(Math.random() * 100000),
+                schedule: { at: new Date(Date.now() + 100) },
+                sound: null,
+                actionTypeId: "",
+                extra: null
+              }]
+            });
+          } catch(e) { console.warn('Failed to send notification:', e); }
+        }
+      }
+
+      // MODUL TEXT-TO-SPEECH BAHASA INDONESIA ("Wah..... motornya nyala nih")
+      function speakVoiceNotification(textMessage) {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel(); // Reset ucapan sebelumnya
+          const utter = new SpeechSynthesisUtterance(textMessage);
+          utter.lang = 'id-ID';
+          utter.rate = 0.95;
+          utter.pitch = 1.0;
+          window.speechSynthesis.speak(utter);
+        }
+      }
 
       function unlockAudioContext() {
         if (!audioCtx) {
@@ -516,6 +570,9 @@
         alarmFlash.classList.add('active');
         document.getElementById('statAlarms').textContent = '1';
         document.getElementById('statAlarms').className = 'stat-value danger';
+        
+        // Kirim Notifikasi SMS Banner saat alarm bahaya aktif di background
+        sendSMSNotification("🚨 ALARM BAHAYA WEMOS!", "Peringatan! Sensor D5 Terdeteksi Aktif!");
       }
 
       function deactivateAlarmUIOnly() {
@@ -621,7 +678,6 @@
           document.getElementById('selD2Mode').value = payload.d2Mode;
         }
 
-        // TAMPILKAN KONFIGURASI HOTSPOT AP DARI WEMOS
         if (payload.apSSID !== undefined && document.activeElement !== document.getElementById('wifiApSSID')) {
           document.getElementById('wifiApSSID').value = payload.apSSID;
         }
@@ -663,6 +719,24 @@
           clientCount = parseInt(p['clients']) || 0;
           sensorTriggerCount = parseInt(p['sensorEvent']) || 0;
 
+          staConnected = !!p['staConnected'] || !!p['espConnected'] || !!p['esp32c3Connected'];
+          staIP = p['staIP'] || '';
+          staSSID = p['staSSID'] || '';
+          wifiMode = p['wifiMode'] !== undefined ? p['wifiMode'] : 2;
+
+          // =========================================================================
+          // DETEKSI ESP32-C3 TERHUBUNG DENGAN AP WEMOS (SAAT WEMOS DALAM MODE AP+STA DI ROUTER)
+          // =========================================================================
+          if (wifiMode === 2 && staConnected) {
+            // Ketika jumlah client berubah dari 0 ke >0 (ESP32-C3 baru terkoneksi ke Wemos Hotspot)
+            if (prevClientCount === 0 && clientCount > 0) {
+              speakVoiceNotification("Wah..... motornya nyala nih");
+              sendSMSNotification("🛵 MOTOR TERDETEKSI NYALA!", "ESP32-C3 telah terhubung ke Wemos AP.");
+            }
+          }
+          prevClientCount = clientCount;
+          // =========================================================================
+
           let newTriggerOccurred = false;
           if (isFirstPoll) {
             prevSensorTriggerCount = sensorTriggerCount;
@@ -673,11 +747,6 @@
               prevSensorTriggerCount = sensorTriggerCount;
             }
           }
-
-          staConnected = !!p['staConnected'] || !!p['espConnected'] || !!p['esp32c3Connected'];
-          staIP = p['staIP'] || '';
-          staSSID = p['staSSID'] || '';
-          wifiMode = p['wifiMode'] !== undefined ? p['wifiMode'] : 2;
 
           const isConnectedESP32 = staConnected;
           const isConnectedGeneral = isConnectedESP32 || clientCount > 0;
@@ -781,7 +850,6 @@
           .catch(() => {});
       });
 
-      // PERBAIKAN PEMANGGILAN SIMPAN KONFIGURASI WIFI (STA & AP)
       document.getElementById('saveWifiBtn').addEventListener('click', function() {
         handleButtonFeedback(this, 880.00);
         const mode = parseInt(document.getElementById('wifiMode').value);
@@ -839,9 +907,14 @@
         }
       });
 
-      function init() {
+        // 2. FUNGSI INISIALISASI UTAMA
+      async function init() {
+        // MINTA IZIN LANGSUNG SAAT APLIKASI DIBUKA
+        await requestAllPermissionsOnStartup();
+
         document.getElementById('inpTargetIP').value = targetIP;
         document.getElementById('inpPollInt').value = POLL_MS;
+        
         pollInterval = setInterval(pollStatus, POLL_MS);
         pollStatus();
       }
