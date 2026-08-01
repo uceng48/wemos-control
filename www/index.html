@@ -369,6 +369,15 @@
       const unblockAudioBtn = document.getElementById('unblockAudioBtn');
 
       const musicalNotes = ['🎵', '🎶', '🎼', '✨', '⚡'];
+      
+      // ===== KONFIGURASI WEBHOOK MACRODROID =====
+const MACRODROID = {
+ sound: 'https://trigger.macrodroid.com/c629d772-939b-4f86-8ad3-21cedbd91e41/alarm-sound',
+ sms: 'https://trigger.macrodroid.com/c629d772-939b-4f86-8ad3-21cedbd91e41/sms-alert',
+ call: 'https://trigger.macrodroid.com/c629d772-939b-4f86-8ad3-21cedbd91e41/call-alert',
+ reset: 'https://trigger.macrodroid.com/c629d772-939b-4f86-8ad3-21cedbd91e41/reset'
+};
+// ===========================================
 
       // 1. FUNGSI MEMINTA SEMUA IZIN SAAT APLIKASI PERTAMA KALI DIBUKA
       async function requestAllPermissionsOnStartup() {
@@ -392,6 +401,15 @@
         }
       }
       
+      function triggerMacroDroid(url) {
+  if (!url) return;
+  fetch(url, { method: 'GET', cache: 'no-store' })
+    .then(response => {
+      if (response.ok) console.log('✅ MacroDroid trigger berhasil:', url);
+      else console.warn('⚠️ MacroDroid trigger gagal:', url, response.status);
+    })
+    .catch(err => console.warn('❌ MacroDroid error:', err));
+}
 
       // KIRIM NOTIFIKASI POPUP SMS / BANNER ANDROID
       async function sendSMSNotification(title, body) {
@@ -573,7 +591,13 @@
         
         // Kirim Notifikasi SMS Banner saat alarm bahaya aktif di background
         sendSMSNotification("🚨 ALARM BAHAYA WEMOS!", "Peringatan! Sensor D5 Terdeteksi Aktif!");
-      }
+       // ===== KIRIM SINYAL KE MACRODROID =====
+  triggerMacroDroid(MACRODROID.sound);
+  triggerMacroDroid(MACRODROID.sms);
+  triggerMacroDroid(MACRODROID.call);
+  // =====================================
+
+ }
 
       function deactivateAlarmUIOnly() {
         alarmTriggered = false;
@@ -587,6 +611,9 @@
       function resetAlarmApp() {
         deactivateAlarmUIOnly();
         sendCommand('/resetAlarm');
+          // ===== KIRIM SINYAL RESET KE MACRODROID =====
+  triggerMacroDroid(MACRODROID.reset);
+  // ===========================================
       }
 
       async function httpGet(endpoint, timeoutMs = 6000) {
